@@ -1,11 +1,17 @@
 import { LoginForm } from "@/components/login-form"
-import { getCurrentUser } from "@/lib/actions/auth"
+import { getCurrentUserWithRole } from "@/lib/actions/auth"
 import { redirect } from "next/navigation"
 
 export default async function LoginPage() {
-  const user = await getCurrentUser()
-  if (user) {
-    redirect("/")
+  try {
+    const userWithRole = await getCurrentUserWithRole()
+    if (userWithRole?.role) {
+      redirect(`/${userWithRole.role}`)
+    }
+  } catch (error) {
+    // If there's a database error, just show the login form
+    // Don't redirect on error to avoid loops
+    console.error("Error checking user:", error)
   }
 
   return (

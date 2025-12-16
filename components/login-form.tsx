@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { signIn } from "@/lib/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +12,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 
 export function LoginForm() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -21,10 +23,19 @@ export function LoginForm() {
     setError("")
     setLoading(true)
 
-    const result = await signIn(email, password)
+    try {
+      const result = await signIn(email, password)
 
-    if (result?.error) {
-      setError(result.error)
+      if (result?.error) {
+        setError(result.error)
+        setLoading(false)
+      } else if (result?.success && result?.redirect) {
+        // Use client-side navigation instead of server redirect
+        router.push(result.redirect)
+        router.refresh()
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to sign in")
       setLoading(false)
     }
   }

@@ -19,7 +19,7 @@ export async function signIn(email: string, password: string) {
 
       await createSession(user.id.toString(), "patient")
       revalidatePath("/", "layout")
-      redirect("/patient")
+      return { success: true, redirect: "/patient" }
     }
 
     // Try to find user in staff table
@@ -33,7 +33,7 @@ export async function signIn(email: string, password: string) {
 
       await createSession(user.id.toString(), "staff")
       revalidatePath("/", "layout")
-      redirect(`/${user.role}`)
+      return { success: true, redirect: `/${user.role}` }
     }
 
     return { error: "Invalid credentials" }
