@@ -5,14 +5,27 @@ import { AdminDashboard } from "@/components/admin-dashboard"
 import { dbGet, dbAll } from "@/lib/db"
 
 export default async function AdminPage() {
-  const userWithRole = await getCurrentUserWithRole()
+  let userWithRole
+  try {
+    userWithRole = await getCurrentUserWithRole()
+  } catch (error) {
+    console.error("Error checking authentication:", error)
+    redirect("/login")
+  }
 
   if (!userWithRole || userWithRole.role !== "admin") {
     redirect("/login")
   }
   
   // Get current staff member
-  const staff = await dbGet("SELECT * FROM staff WHERE id = ?", [userWithRole.user.id]) as any
+  let staff: any
+  try {
+    staff = await dbGet("SELECT * FROM staff WHERE id = ?", [userWithRole.user.id]) as any
+  } catch (error) {
+    console.error("Error fetching staff:", error)
+    // If database fails, still redirect to login
+    redirect("/login")
+  }
 
   // Get all staff
   const allStaff = await dbAll("SELECT * FROM staff ORDER BY created_at DESC") as any[]

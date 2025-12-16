@@ -27,7 +27,12 @@ export function LoginForm() {
       const result = await signIn(email, password)
 
       if (result?.error) {
-        setError(result.error)
+        // Check if it's a database timeout/connection error
+        if (result.error.includes("timeout") || result.error.includes("SQLite") || result.error.includes("Database connection failed")) {
+          setError("Database connection failed. SQLite does not work on Vercel. Please migrate to a cloud database (Vercel Postgres, Turso, etc.)")
+        } else {
+          setError(result.error)
+        }
         setLoading(false)
       } else if (result?.success && result?.redirect) {
         // Use client-side navigation instead of server redirect
@@ -35,7 +40,12 @@ export function LoginForm() {
         router.refresh()
       }
     } catch (err: any) {
-      setError(err.message || "Failed to sign in")
+      const errorMessage = err.message || "Failed to sign in"
+      if (errorMessage.includes("timeout") || errorMessage.includes("SQLite")) {
+        setError("Database connection failed. SQLite does not work on Vercel. Please migrate to a cloud database.")
+      } else {
+        setError(errorMessage)
+      }
       setLoading(false)
     }
   }
