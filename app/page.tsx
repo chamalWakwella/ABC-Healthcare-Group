@@ -14,7 +14,7 @@ export default async function HomePage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
       <div className="text-center space-y-6">
         <h1 className="text-4xl font-bold text-gray-900">Hospital Management System</h1>
-        <p className="text-lg text-gray-600">Welcome to our comprehensive healthcare platform</p>
+        <p className="text-lg text-gray-600">Welcome to our ABC Healthcare Group</p>
         <div className="flex gap-4 justify-center">
           <Link href="/login">
             <Button size="lg">Sign In</Button>
