@@ -11,7 +11,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Try to find user in patients table
-    let user = await dbGet("SELECT * FROM patients WHERE email = ?", [email]) as any
+    let user: any
+    try {
+      user = await dbGet("SELECT * FROM patients WHERE email = ?", [email]) as any
+    } catch (dbError: any) {
+      console.error("Database error in login (patients):", dbError)
+      // Check if it's a SQLite/Vercel issue
+      if (dbError.message?.includes("timeout") || dbError.message?.includes("SQLite")) {
+        return NextResponse.json({ 
+          error: "Database connection failed. SQLite does not work on Vercel. Please migrate to a cloud database.",
+          details: dbError.message 
+        }, { status: 503 })
+      }
+      throw dbError
+    }
 
     if (user) {
       const isValid = await verifyPassword(password, user.password_hash)
@@ -33,7 +46,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Try to find user in staff table
-    user = await dbGet("SELECT * FROM staff WHERE email = ?", [email]) as any
+    try {
+      user = await dbGet("SELECT * FROM staff WHERE email = ?", [email]) as any
+    } catch (dbError: any) {
+      console.error("Database error in login (staff):", dbError)
+      // Check if it's a SQLite/Vercel issue
+      if (dbError.message?.includes("timeout") || dbError.message?.includes("SQLite")) {
+        return NextResponse.json({ 
+          error: "Database connection failed. SQLite does not work on Vercel. Please migrate to a cloud database.",
+          details: dbError.message 
+        }, { status: 503 })
+      }
+      throw dbError
+    }
 
     if (user) {
       const isValid = await verifyPassword(password, user.password_hash)

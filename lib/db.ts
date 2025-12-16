@@ -1,7 +1,11 @@
 import sqlite3 from "sqlite3"
 import { join } from "path"
 
-const dbPath = process.env.DATABASE_PATH || join(process.cwd(), "hospital.db")
+// On Vercel, use /tmp directory (only writable location)
+// WARNING: Data in /tmp is ephemeral and will be lost on each deployment
+const isVercel = process.env.VERCEL === "1" || process.env.VERCEL_ENV
+const dbPath = process.env.DATABASE_PATH || 
+  (isVercel ? "/tmp/hospital.db" : join(process.cwd(), "hospital.db"))
 
 let db: sqlite3.Database | null = null
 let isInitializing = false
@@ -12,31 +16,47 @@ export function getDatabase(): sqlite3.Database {
     return db
   }
 
-  // Use WAL mode for better concurrency
-  db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-    if (err) {
-      console.error("Error opening database:", err)
-      // If database is corrupted, try to delete and recreate
-      if (err.message.includes("CORRUPT") || err.message.includes("malformed")) {
-        console.log("Database corrupted, will recreate on next access")
-        db = null
-        return
+  try {
+    console.log(`Opening database at: ${dbPath} (Vercel: ${isVercel})`)
+    
+    // Use WAL mode for better concurrency
+    db = new sqlite3.Database(dbPath, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
+      if (err) {
+        console.error("Error opening database:", err)
+        console.error("Database path:", dbPath)
+        // If database is corrupted, try to delete and recreate
+        if (err.message.includes("CORRUPT") || err.message.includes("malformed")) {
+          console.log("Database corrupted, will recreate on next access")
+          db = null
+          return
+        }
+        // On Vercel, if we can't write, log the error but don't throw
+        if (isVercel && (err.message.includes("readonly") || err.message.includes("permission"))) {
+          console.error("⚠️ WARNING: Cannot write to database on Vercel. SQLite will not work properly.")
+          console.error("⚠️ You MUST migrate to a cloud database (Vercel Postgres, Turso, etc.)")
+        }
+        throw err
       }
-      throw err
-    }
-  })
+      console.log("Database opened successfully")
+    })
 
-  // Enable WAL mode for better concurrency
-  db.run("PRAGMA journal_mode = WAL")
-  db.run("PRAGMA foreign_keys = ON")
-  db.run("PRAGMA synchronous = NORMAL")
-  
-  // Initialize database if tables don't exist
-  if (!initPromise) {
-    initPromise = initializeDatabase(db)
+    // Enable WAL mode for better concurrency (but not on Vercel as it may cause issues)
+    if (!isVercel) {
+      db.run("PRAGMA journal_mode = WAL")
+    }
+    db.run("PRAGMA foreign_keys = ON")
+    db.run("PRAGMA synchronous = NORMAL")
+    
+    // Initialize database if tables don't exist
+    if (!initPromise) {
+      initPromise = initializeDatabase(db)
+    }
+    
+    return db
+  } catch (error: any) {
+    console.error("Failed to get database:", error)
+    throw error
   }
-  
-  return db
 }
 
 async function initializeDatabase(db: sqlite3.Database): Promise<void> {
@@ -222,8 +242,16 @@ export async function dbGet(sql: string, params: any[] = []): Promise<any> {
   return new Promise((resolve, reject) => {
     try {
       const database = getDatabase()
+      
+      // Add timeout to prevent hanging
+      const timeout = setTimeout(() => {
+        reject(new Error("Database query timeout - SQLite may not be working on Vercel. Please migrate to a cloud database."))
+      }, 10000) // 10 second timeout
+      
       database.get(sql, params, (err, row) => {
+        clearTimeout(timeout)
         if (err) {
+          console.error("Database query error:", err)
           // If database is corrupted, try to recreate
           if (err.message.includes("CORRUPT") || err.message.includes("malformed")) {
             console.error("Database corruption detected, please restart the server")
@@ -249,8 +277,16 @@ export async function dbAll(sql: string, params: any[] = []): Promise<any[]> {
   return new Promise((resolve, reject) => {
     try {
       const database = getDatabase()
+      
+      // Add timeout to prevent hanging
+      const timeout = setTimeout(() => {
+        reject(new Error("Database query timeout - SQLite may not be working on Vercel. Please migrate to a cloud database."))
+      }, 10000) // 10 second timeout
+      
       database.all(sql, params, (err, rows) => {
+        clearTimeout(timeout)
         if (err) {
+          console.error("Database query error:", err)
           // If database is corrupted, try to recreate
           if (err.message.includes("CORRUPT") || err.message.includes("malformed")) {
             console.error("Database corruption detected, please restart the server")
@@ -276,8 +312,16 @@ export async function dbRun(sql: string, params: any[] = []): Promise<{ lastID: 
   return new Promise((resolve, reject) => {
     try {
       const database = getDatabase()
+      
+      // Add timeout to prevent hanging
+      const timeout = setTimeout(() => {
+        reject(new Error("Database query timeout - SQLite may not be working on Vercel. Please migrate to a cloud database."))
+      }, 10000) // 10 second timeout
+      
       database.run(sql, params, function(err) {
+        clearTimeout(timeout)
         if (err) {
+          console.error("Database query error:", err)
           // If database is corrupted, try to recreate
           if (err.message.includes("CORRUPT") || err.message.includes("malformed")) {
             console.error("Database corruption detected, please restart the server")
